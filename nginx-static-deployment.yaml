@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+  labels:
+    app: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+        - name: test
+          image: gcr.io/internetzme/test:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+      imagePullSecrets:
+        - name: gcr-json-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-service
+spec:
+  selector:
+    app: test
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 20000
+      targetPort: 80
+      nodePort: 30000
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: test-ingress
+  annotations:
+    cert-manager.io/cluster-issue: letsencrypt-prod
+spec:
+  rules:
+    - host: test.internetz.me
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: test-service
+              servicePort: 80
+  tls:
+    - hosts:
+        - test.internetz.me
+      secretName: test-internetz-me-tls
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: test-internetz-me
+  namespace: default
+spec:
+  secretName: test-internetz-me-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: test.internetz.me
+  dnsNames:
+    - test.internetz.me
